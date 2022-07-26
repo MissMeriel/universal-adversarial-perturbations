@@ -1,4 +1,4 @@
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 from tensorflow.python.platform import gfile
 import os.path
@@ -13,6 +13,12 @@ if sys.version_info[0] >= 3:
 else:
     from urllib import urlretrieve
 
+import os
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# tf.get_logger().setLevel('INFO')
+tf.autograph.set_verbosity(1)
 
 from universal_pert import universal_perturbation
 device = '/gpu:0'
@@ -34,9 +40,10 @@ if __name__ == '__main__':
 
     # Parse arguments
     argv = sys.argv[1:]
-
+    tf.compat.v1.disable_v2_behavior()
+    tf.compat.v1.disable_eager_execution()
     # Default values
-    path_train_imagenet = '/datasets2/ILSVRC2012/train'
+    path_train_imagenet = '/home/meriel/datasets/ILSVRC2012/ILSVRC2012_img_val' #'/datasets2/ILSVRC2012/train'
     path_test_image = 'data/test_img.png'
     
     try:
@@ -52,7 +59,8 @@ if __name__ == '__main__':
             path_test_image = arg
 
     with tf.device(device):
-        persisted_sess = tf.Session()
+        # persisted_sess = tf.Session()
+        persisted_sess = tf.compat.v1.Session()
         inception_model_path = os.path.join('data', 'tensorflow_inception_graph.pb')
 
         if os.path.isfile(inception_model_path) == 0:
@@ -67,7 +75,8 @@ if __name__ == '__main__':
 
         # Load the Inception model
         with gfile.FastGFile(model, 'rb') as f:
-            graph_def = tf.GraphDef()
+            # graph_def = tf.GraphDef()
+            graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(f.read())
             persisted_sess.graph.as_default()
             tf.import_graph_def(graph_def, name='')
@@ -81,7 +90,7 @@ if __name__ == '__main__':
         def f(image_inp): return persisted_sess.run(persisted_output, feed_dict={persisted_input: np.reshape(image_inp, (-1, 224, 224, 3))})
 
         file_perturbation = os.path.join('data', 'universal.npy')
-
+        print(f"{file_perturbation}\n{os.path.isfile(file_perturbation)}")
         if os.path.isfile(file_perturbation) == 0:
 
             # TODO: Optimize this construction part!
@@ -96,7 +105,7 @@ if __name__ == '__main__':
             # Load/Create data
             datafile = os.path.join('data', 'imagenet_data.npy')
             if os.path.isfile(datafile) == 0:
-                print('>> Creating pre-processed imagenet data...')
+                print(f'>> Creating pre-processed imagenet data from {path_train_imagenet}...')
                 X = create_imagenet_npy(path_train_imagenet)
 
                 print('>> Saving the pre-processed imagenet data')
@@ -118,7 +127,7 @@ if __name__ == '__main__':
             np.save(os.path.join(file_perturbation), v)
 
         else:
-            print('>> Found a pre-computed universal perturbation! Retrieving it from ", file_perturbation')
+            print('>> Found a pre-computed universal perturbation! Retrieving it from ', file_perturbation)
             v = np.load(file_perturbation)
 
         print('>> Testing the universal perturbation on an image')
@@ -128,14 +137,14 @@ if __name__ == '__main__':
 
         image_original = preprocess_image_batch([path_test_image], img_size=(256, 256), crop_size=(224, 224), color_mode="rgb")
         label_original = np.argmax(f(image_original), axis=1).flatten()
-        str_label_original = labels[np.int(label_original)-1].split(',')[0]
+        str_label_original = labels[int(label_original)-1].split(',')[0]
 
         # Clip the perturbation to make sure images fit in uint8
         clipped_v = np.clip(undo_image_avg(image_original[0,:,:,:]+v[0,:,:,:]), 0, 255) - np.clip(undo_image_avg(image_original[0,:,:,:]), 0, 255)
 
         image_perturbed = image_original + clipped_v[None, :, :, :]
         label_perturbed = np.argmax(f(image_perturbed), axis=1).flatten()
-        str_label_perturbed = labels[np.int(label_perturbed)-1].split(',')[0]
+        str_label_perturbed = labels[int(label_perturbed)-1].split(',')[0]
 
         # Show original and perturbed image
         plt.figure()

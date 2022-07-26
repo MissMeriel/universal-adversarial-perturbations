@@ -1,6 +1,12 @@
 import numpy as np
 import os
-from scipy.misc import imread, imresize
+# from scipy.misc import imread, imresize
+# from scipy.misc.pilutil import imread, imresize
+# from scipy import misc
+# from matplotlib.pyplot import imread
+from cv2 import imread
+# from matplotlib import imresize
+from skimage import transform
 
 CLASS_INDEX = None
 CLASS_INDEX_PATH = 'https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json'
@@ -10,9 +16,10 @@ def preprocess_image_batch(image_paths, img_size=None, crop_size=None, color_mod
     img_list = []
 
     for im_path in image_paths:
-        img = imread(im_path, mode='RGB')
+        img = imread(im_path) #, mode='RGB')
         if img_size:
-            img = imresize(img,img_size)
+            # img = imresize(img,img_size)
+            img = transform.resize(img,img_size)
 
         img = img.astype('float32')
         # We normalize the colors (in RGB space) with the empirical means on the training set
@@ -57,6 +64,7 @@ def create_imagenet_npy(path_train_imagenet, len_batch=10000):
     im_array = np.zeros([len_batch] + sz_img + [num_channels], dtype=np.float32)
     num_imgs_per_batch = int(len_batch / num_classes)
 
+    print(path_train_imagenet)
     dirs = [x[0] for x in os.walk(path_train_imagenet)]
     dirs = dirs[1:]
 
@@ -77,6 +85,10 @@ def create_imagenet_npy(path_train_imagenet, len_batch=10000):
     for k in range(num_classes):
         for u in range(num_imgs_per_batch):
             print('Processing image number ', it)
+            print(k)
+            print(dirs)
+            print(dirs[k])
+            print(Matrix[k][u])
             path_img = os.path.join(dirs[k], Matrix[k][u])
             image = preprocess_image_batch([path_img],img_size=(256,256), crop_size=(224,224), color_mode="rgb")
             im_array[it:(it+1), :, :, :] = image
